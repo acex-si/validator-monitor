@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        // {
+        //     "type": "node",
+        //     "request": "launch",
+        //     "name": "Launch Service Test",
+        //     "skipFiles": [
+        //         "<node_internals>/**"
+        //     ],
+        //     "program": "${workspaceFolder}\\src\\server.ts",
+        //     "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/ts-node-dev",
+        // },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Metrics Test",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}\\src\\analyze-metrics.ts",
+            "args": ["--nodeId=NodeID-4XZ7a7fGCzw6xqMFNQHy46JjUXnnq51Y1", "--from=2022-10-06T00:00:00Z", "--to=2022-10-06T15:00:00Z"],
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/ts-node-dev",
+        }
+    ]
+}
