@@ -32,7 +32,7 @@ const consoleOptions = {
 
 const loggerTransports = [];
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && process.env.LOG_PATH) {
     loggerTransports.push(new DailyRotateFile(dailyRotateOptions));
 }
 if (process.env.NODE_ENV === 'develop') {
