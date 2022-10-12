@@ -21,7 +21,6 @@ async function startServer() {
             logger.info('Server shut down');
         });
     }
-    process.on('SIGKILL', startGracefulShutdown);
     process.on('SIGTERM', startGracefulShutdown);
     process.on('SIGINT', startGracefulShutdown);
 }
