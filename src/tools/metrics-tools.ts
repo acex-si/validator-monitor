@@ -5,6 +5,8 @@ import { CronJob } from 'cron';
 import { Mutex } from 'async-mutex';
 import logger from '../logger';
 import { GetCurrentValidatorsResponse, ValidatorResponse } from '../types/avalanche';
+import { ValidatorNodeDataItem } from '../types/tools';
+import { dashboardManager } from './grafana-tools';
 
 
 // Prometheus metrics definition
@@ -29,27 +31,75 @@ registry.registerMetric(nodeAvailable);
 // Metrics parsing
 // ------------------------------------------------------------------------------------------------
 
+
 interface UptimeManagerParams {
+    /**
+     * A list of avalanche urls providing uptimes (by calling listValidators API)
+     */
     nodeURLs: string[],
-    validatorNodeIDs: string[],
+
+    /**
+     * A list of initial validator nodes (id, name), can be empty if fetched from URL
+     */
+    validatorNodes: ValidatorNodeDataItem[],
+
+    /**
+     * Cron string to initialize uptime fetching cronjob
+     */
     cronString?: string,
+
+    /**
+     * URL for periodically updating validator nodes
+     */
+    refreshUrl?: string,
+
+    /**
+     * Cron string for periodically updating validator nodes
+     */
+     refreshCronString?: string,
 }
+
 
 class UptimeManager {
 
     private updateLock = new Mutex();
     private cron: CronJob;
+    private refreshCron: CronJob;
     private readonly nodeURLs: string[];
-    private readonly validatorNodeIDs: Set<string>;
+    private validatorNodeData: Map<string, ValidatorNodeDataItem>;
+    private validatorNodeIDs: Set<string>;
+    private refreshUrl: string;
 
-    constructor({ nodeURLs, validatorNodeIDs, cronString = '*/10 * * * * *'}: UptimeManagerParams) {
+    constructor({ nodeURLs, validatorNodes, cronString = '*/10 * * * * *', refreshCronString, refreshUrl }: UptimeManagerParams) {
         this.nodeURLs = nodeURLs;
-        this.validatorNodeIDs = new Set<string>(validatorNodeIDs);
+        this.updateValidatorData(validatorNodes);
         this.cron = new CronJob({
             cronTime: cronString,
             onTick: () => { this.update(); }
         });
         this.cron.start();
+        if (refreshCronString && refreshUrl) {
+            this.refreshUrl = refreshUrl;
+            this.refreshCron = new CronJob({
+                cronTime: refreshCronString,
+                onTick: () => { this.updateValidators(); }
+            });
+            this.refreshCron.start();
+            this.updateValidators();
+        }
+    }
+
+    private updateValidatorData(validatorNodes: ValidatorNodeDataItem[]) {
+        this.validatorNodeData = new Map<string, ValidatorNodeDataItem>();
+        this.validatorNodeIDs = new Set<string>();
+        for (const v of validatorNodes) {
+            if (!v.nodeId) {
+                continue;
+            }
+            logger.info(`Watching validator ${v.nodeId} with name ${v.name}`);
+            this.validatorNodeIDs.add(v.nodeId);
+            this.validatorNodeData.set(v.nodeId, v);
+        }
     }
 
     // Returns a map from node url to the data; maps to null in the case when the node was not accessible
@@ -111,6 +161,22 @@ class UptimeManager {
         }
     }
 
+    private async updateValidators() {
+        const release = await this.updateLock.acquire();
+        try {
+            const newValidators = await axios.get<ValidatorNodeDataItem[]>(this.refreshUrl);
+            logger.info('Refreshed validators');
+            this.updateValidatorData(newValidators.data);
+            if (this.validatorNodeIDs.size === 0) {
+                logger.warn(`No nodes to watch, check URL ${this.refreshUrl}`);
+            }
+        } finally {
+            release();
+        }
+        // Don't need to call with await; it can be done asynchronously...
+        dashboardManager.update([...this.validatorNodeData.values()]);
+    }
+
     async getMetrics() {
         await this.updateLock.waitForUnlock();
         return await registry.metrics();
@@ -135,21 +201,13 @@ function getAvalancheNodeURLs(): string[] {
     return [];
 }
 
-interface ValidatorData {
-    nodeId: string;
-}
-
-function getValidatorIDs(): string[] {
-    const file = fs.readFileSync(process.env.VALIDATORS_FILE, 'utf8');
-    const vData: ValidatorData[] = JSON.parse(file);
-    const response = vData.map(v => v.nodeId).filter(s => s.length > 0);
-
-    if (response.length === 0) {
-        logger.warn(`No nodes to watch, check file ${process.env.VALIDATORS_FILE}`);
-    } else {
-        response.forEach(id => logger.info(`Watching validator ${id}`));
+function getValidatorIDs(): ValidatorNodeDataItem[] {
+    if (!process.env.VALIDATORS_FILE) {
+        return []
     }
-    return response;
+    const file = fs.readFileSync(process.env.VALIDATORS_FILE, 'utf8');
+    const vData: ValidatorNodeDataItem[] = JSON.parse(file);
+    return vData;
 }
 
 function getCronString() {
@@ -159,8 +217,10 @@ function getCronString() {
 
 const manager = new UptimeManager({
     nodeURLs: getAvalancheNodeURLs(),
-    validatorNodeIDs: getValidatorIDs(),
-    cronString: getCronString()
+    validatorNodes: getValidatorIDs(),
+    cronString: getCronString(),
+    refreshUrl: process.env.VALIDATORS_URL,
+    refreshCronString: process.env.VALIDATORS_REFRESH_CRON,
 });
 
 

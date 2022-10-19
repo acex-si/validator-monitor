@@ -1,4 +1,5 @@
 import * as dotenv from 'dotenv'
+import { exit } from 'process';
 dotenv.config();
 
 import { createServer } from "./express";
@@ -19,6 +20,7 @@ async function startServer() {
         logger.info('Starting shutdown of server');
         server.close(() => {
             logger.info('Server shut down');
+            exit(1);
         });
     }
     process.on('SIGTERM', startGracefulShutdown);
