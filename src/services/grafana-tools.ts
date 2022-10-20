@@ -1,40 +1,25 @@
-import fs from 'fs';
+import * as fs from 'fs';
 import axios from 'axios';
-import logger from '../logger';
 import { ValidatorNodeDataItem } from "../types/tools";
-
-interface DashboardManagerParams {
-    /**
-     * Url of the template
-     */
-    templateUrl: string;
-
-    /**
-     * Destination for the dashboard (file in the folder where Grafana periodically checks for dashboard updates)
-     */
-     dashboardPath: string;
-}
+import { Injectable, Logger } from '@nestjs/common';
+import { Configuration } from './config';
 
 
-class DashboardManager {
+@Injectable()
+export class DashboardManager {
 
-    private readonly templateUrl: string;
-    private readonly dashboardPath: string;
-
-    constructor({ templateUrl, dashboardPath }: DashboardManagerParams) {
-        this.templateUrl = templateUrl;
-        this.dashboardPath = dashboardPath;
+    constructor(private readonly config: Configuration) {
     }
 
     private async readTemplate(): Promise<any> {
         try {
-            const response = await axios.get<any>(this.templateUrl);
+            const response = await axios.get<any>(this.config.dashboardTemplateUrl);
             if (!response.data) {
-                logger.info(`Empty template on ${this.templateUrl}`);
+                Logger.log(`Empty template on ${this.config.dashboardTemplateUrl}`);
             }
             return response.data;
         } catch (e) {
-            logger.error(`Error fetching grafana template from ${this.templateUrl}, ${e}`)
+            Logger.error(`Error fetching grafana template from ${this.config.dashboardTemplateUrl}, ${e}`)
             return null;
         }
     }
@@ -71,7 +56,7 @@ class DashboardManager {
     }
 
     async update(nodes: ValidatorNodeDataItem[]) {
-        if (!this.templateUrl || !this.dashboardPath) {
+        if (!this.config.dashboardTemplateUrl || !this.config.dashboardPath) {
             return;
         }
 
@@ -82,14 +67,9 @@ class DashboardManager {
 
         try {
             this.dashboardFromTemplate(template, nodes);
-            fs.writeFileSync(this.dashboardPath, JSON.stringify(template), 'utf-8');
+            fs.writeFileSync(this.config.dashboardPath, JSON.stringify(template), 'utf-8');
         } catch (e) {
-            logger.error(`Error generating dashboard, ${e}`);
+            Logger.error(`Error generating dashboard, ${e}`);
         }
     }
 }
-
-export const dashboardManager = new DashboardManager({
-    templateUrl: process.env.GRAFANA_DASHBOARD_TEMPLATE_URL,
-    dashboardPath: process.env.GRAFANA_DASHBOARD_PATH,
-});

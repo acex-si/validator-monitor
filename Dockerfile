@@ -26,4 +26,4 @@ RUN yarn build
 
 EXPOSE 8502
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/main.js"]

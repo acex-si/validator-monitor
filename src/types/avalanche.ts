@@ -1,5 +1,5 @@
 
-// Typess for for avalanche apis
+// Types for for avalanche apis
 // ------------------------------------------------------------------------------------------------
 
 export interface ValidatorResponse {
