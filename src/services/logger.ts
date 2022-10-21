@@ -31,6 +31,7 @@ export class WinstonLogger implements LoggerService {
             maxSize: '10m',
             format: format.combine(
                 format.timestamp(),
+                format.json(),
                 fileFormat
             ),
         };
@@ -39,6 +40,7 @@ export class WinstonLogger implements LoggerService {
             handleExceptions: true,
             format: format.combine(
                 format.colorize(),
+                format.json(),
                 consoleFormat
             )
         };

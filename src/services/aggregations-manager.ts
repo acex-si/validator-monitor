@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { PrometheusDriver, SampleValue } from 'prometheus-query';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { PrometheusDriver } from 'prometheus-query';
+import { toPrometheusTime } from '../tools/time';
+import { UptimeResponse } from '../types/aggregations';
 import { Configuration } from './config';
 
 
@@ -14,21 +16,31 @@ export class AggregationsManager {
         });
     }
 
-    async runAnalyze(nodeId: string, from: Date, to: Date) {
-        const step = 30; // seconds
+    async runAnalyze(nodeId: string, from: Date, to: Date): Promise<UptimeResponse> {
+        const now = Date.now();
+        const duration = to.getTime() - from.getTime();
+        // const offset = Math.max(now - to.getTime(), 0);
 
-        const queryResult = await this.driver.rangeQuery(`validators_connected{NodeID="${nodeId}"}`, from, to, step);
-        console.log(queryResult);
-        const result = queryResult.result[0];
-        const values: SampleValue[] = result.values;
-
-        if (!values || values.length <= 1) {
-            console.log('Empty or just one value returned');
-            return;
+        if (duration <= 0) {
+            throw new HttpException('Invalid duration', HttpStatus.BAD_REQUEST);
         }
-        const count = values.reduce((v, s) => s.value + v, 0);
-        const uptimePercentage = count / values.length;
-        console.log('Uptime percentage', uptimePercentage);
+
+
+        const durationStr = toPrometheusTime(duration);
+        // const offsetStr = offset > 0 ? (' offset ' + toPrometheusTime(offset)) : '';
+        // const query =`avg_over_time(validators_connected{NodeID="${nodeId}"}[${durationStr}]${offsetStr})`;
+        const query = `avg_over_time(validators_connected{NodeID="${nodeId}"}[${durationStr}])`;
+
+        Logger.log(`Running query '${query}' at ${to}`);
+
+        const queryResult = await this.driver.instantQuery(query, to);
+
+        if (!queryResult.result || queryResult.result.length == 0) {
+            return { uptime: null };
+        }
+        return {
+            uptime: queryResult.result[0].value.value
+        };
     }
 
 }
