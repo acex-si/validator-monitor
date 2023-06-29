@@ -6,7 +6,7 @@ import { LoggerModule } from './modules/logger';
 import { AggregationsManager } from './services/aggregations-manager';
 import { Configuration } from './services/config';
 import { DashboardManager } from './services/grafana-tools';
-import { PrometheusRegistry } from './services/prometheus';
+import PrometheusRegistry from './services/prometheus';
 import { UptimeManager } from './services/uptime-manager';
 
 @Module({

@@ -1,15 +1,17 @@
 import { Gauge, Registry } from 'prom-client';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 
 @Injectable()
-export class PrometheusRegistry {
+export default class PrometheusRegistry implements OnModuleInit {
 
     private registry: Registry;
     public readonly connectedCounter: Gauge;
     public readonly nodeAvailable: Gauge;
 
     constructor() {
+        Logger.log('Constructing PrometheusRegistry')
+
         this.registry = new Registry();
 
         this.connectedCounter = new Gauge({
@@ -25,6 +27,10 @@ export class PrometheusRegistry {
             labelNames: ['NodeURL'],
         });
         this.registry.registerMetric(this.nodeAvailable);
+    }
+
+    onModuleInit() {
+        Logger.log('Initializing PrometheusRegistry')
     }
 
     metrics(): Promise<string> {

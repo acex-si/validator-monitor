@@ -6,7 +6,7 @@ import { ValidatorNodeDataItem } from '../types/tools';
 import { DashboardManager } from './grafana-tools';
 import { Injectable, Logger } from '@nestjs/common';
 import { Configuration } from './config';
-import { PrometheusRegistry } from './prometheus';
+import PrometheusRegistry from './prometheus';
 
 
 @Injectable()

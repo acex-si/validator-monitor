@@ -1,14 +1,19 @@
 import * as fs from 'fs';
 import axios from 'axios';
 import { ValidatorNodeDataItem } from "../types/tools";
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Configuration } from './config';
 
 
 @Injectable()
-export class DashboardManager {
+export class DashboardManager implements OnModuleInit {
 
     constructor(private readonly config: Configuration) {
+        Logger.log('Constructing DashboardManager')
+    }
+
+    onModuleInit() {
+        Logger.log('Initializing DashboardManager')
     }
 
     private async readTemplate(): Promise<any> {
