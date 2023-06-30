@@ -13,24 +13,9 @@ export class Configuration {
     nodeURLs: string[] = [];
 
     /**
-     * A list of initial validator nodes (id, name), can be empty if fetched from URL
-     */
-    validatorNodes: ValidatorNodeDataItem[] = [];
-
-    /**
      * Cron string to initialize uptime fetching cronjob
      */
     cronString: string;
-
-    /**
-     * URL for periodically updating validator nodes
-     */
-    refreshUrl: string;
-
-    /**
-     * Cron string for periodically updating validator nodes
-     */
-    refreshCronString: string;
 
     /**
      * Grafana dashboard template url
@@ -50,10 +35,7 @@ export class Configuration {
 
     constructor(private readonly configService: ConfigService) {
         this.initNodeURLs();
-        this.initValidatorIDs();
         this.initCronString();
-        this.refreshUrl = this.configService.get<string>('VALIDATORS_URL');
-        this.refreshCronString = this.configService.get<string>('VALIDATORS_REFRESH_CRON');
         this.dashboardPath = this.configService.get<string>('GRAFANA_DASHBOARD_PATH');
         this.dashboardTemplateUrl = this.configService.get<string>('GRAFANA_DASHBOARD_TEMPLATE_URL');
         this.prometheusUrl = this.configService.get<string>('PROMETHEUS_URL');
@@ -74,16 +56,8 @@ export class Configuration {
         }
     }
 
-    private initValidatorIDs() {
-        const envValidatorsFile = this.configService.get<string>('VALIDATORS_FILE');
-        if (envValidatorsFile) {
-            const file = fs.readFileSync(envValidatorsFile, 'utf8');
-            this.validatorNodes = JSON.parse(file);
-        }
-    }
-
     private initCronString() {
-        const step: number = parseInt(this.configService.get<string>('VALIDATORS_FILE')) || 10;
+        const step: number = parseInt(this.configService.get<string>('STEP_SECONDS')) || 10;
         this.cronString = `*/${step} * * * * *`;
     }
 }

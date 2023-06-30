@@ -9,45 +9,28 @@ import { Configuration } from './config';
 import PrometheusRegistry from './prometheus';
 
 
+interface ValidatorMetricsData {
+    connected: boolean;
+    startTime: number;
+    endTime: number;
+}
+
+
 @Injectable()
 export class UptimeManager {
 
     private updateLock = new Mutex();
     private cron: CronJob;
-    private refreshCron: CronJob;
-    private validatorNodeData: Map<string, ValidatorNodeDataItem>;
-    private validatorNodeIDs: Set<string>;
+    private validatorNodeData: Map<string, ValidatorNodeDataItem> = new Map<string, ValidatorNodeDataItem>();
 
     constructor(private readonly config: Configuration,
                 private readonly registry: PrometheusRegistry,
                 private readonly dashboardManager: DashboardManager) {
-        this.updateValidatorData(config.validatorNodes);
         this.cron = new CronJob({
             cronTime: config.cronString,
             onTick: () => { this.update(); }
         });
         this.cron.start();
-        if (config.refreshCronString && config.refreshUrl) {
-            this.refreshCron = new CronJob({
-                cronTime: config.refreshCronString,
-                onTick: () => { this.updateValidators(); }
-            });
-            this.refreshCron.start();
-            this.updateValidators();
-        }
-    }
-
-    private updateValidatorData(validatorNodes: ValidatorNodeDataItem[]) {
-        this.validatorNodeData = new Map<string, ValidatorNodeDataItem>();
-        this.validatorNodeIDs = new Set<string>();
-        for (const v of validatorNodes) {
-            if (!v.nodeId) {
-                continue;
-            }
-            Logger.log(`Watching validator ${v.nodeId} with name ${v.name}`);
-            this.validatorNodeIDs.add(v.nodeId);
-            this.validatorNodeData.set(v.nodeId, v);
-        }
     }
 
     // Returns a map from node url to the data; maps to null in the case when the node was not accessible
@@ -76,18 +59,17 @@ export class UptimeManager {
 
         const release = await this.updateLock.acquire();
         try {
-            if (Array.from(responses.values()).some(v => v !== null)) {
-                this.updateMetrics(responses);
-            }
+            this.updateMetrics(responses);
         } finally {
             release();
         };
     }
 
     private updateMetrics(responses: Map<string, ValidatorResponse[]>) {
-        const connected = new Map<string, boolean>(); // nodeID -> connected
-        for (const [url, response] of responses.entries()) {
+        const metricsData = new Map<string, ValidatorMetricsData>(); // nodeID -> { connected, startTime, endTime }
+        let hasValidResponse = false;
 
+        for (const [url, response] of responses.entries()) {
             if (response == null) {
                 this.registry.nodeAvailable.set({ 'NodeURL': url }, 0);
                 continue;
@@ -95,36 +77,69 @@ export class UptimeManager {
             this.registry.nodeAvailable.set({ 'NodeURL': url }, 1);
 
             for (const v of response) {
-                if (!this.validatorNodeIDs.has(v.nodeID)) {
-                    continue;
+                const md = metricsData.get(v.nodeID)
+                if (md) {
+                    md.connected = md.connected || Boolean(v.connected);
+                } else {
+                    metricsData.set(v.nodeID, {
+                        connected: Boolean(v.connected),
+                        startTime: Number(v.startTime),
+                        endTime: Number(v.endTime)
+                    });
                 }
-                connected.set(v.nodeID, v.connected || Boolean(connected.get(v.nodeID)))
             }
+            hasValidResponse = true;
         }
 
+        // Reset counters
+        if (!hasValidResponse) {
+            Logger.warn('No valid responses from nodes. Skipping metrics update');
+            return;
+        }
+
+        let nodesChanged = false;
         this.registry.connectedCounter.reset();
-        for (const nodeID of this.validatorNodeIDs) {
-            const counterVal = connected.get(nodeID) ? 1 : 0;
-            this.registry.connectedCounter.set({ 'NodeID': nodeID }, counterVal);
-        }
-    }
+        this.registry.validatorStartTime.reset();
+        this.registry.validatorEndTime.reset();
+        for (const [nodeID, md] of metricsData.entries()) {
+            const startTime = md.startTime * 1000;
+            const endTime = md.endTime * 1000;
 
-    private async updateValidators() {
-        const release = await this.updateLock.acquire();
-        try {
-            const newValidators = await axios.get<ValidatorNodeDataItem[]>(this.config.refreshUrl);
-            Logger.log('Refreshed validators');
-            this.updateValidatorData(newValidators.data);
-            if (this.validatorNodeIDs.size === 0) {
-                Logger.warn(`No nodes to watch, check URL ${this.config.refreshUrl}`);
+            // Update metrics
+            this.registry.connectedCounter.set({ 'NodeID': nodeID }, md.connected ? 1 : 0);
+            this.registry.validatorStartTime.set({ 'NodeID': nodeID }, startTime);
+            this.registry.validatorEndTime.set({ 'NodeID': nodeID }, endTime);
+
+            // Check if node is new
+            const vnd = this.validatorNodeData.get(nodeID);
+            if (!vnd) {
+                this.validatorNodeData.set(nodeID, {
+                    nodeId: nodeID,
+                    name: '',
+                    startTime: startTime,
+                    endTime: endTime,
+                });
+                Logger.log(`Started watching validator ${nodeID}`);
+                nodesChanged = true;
+            } else if (vnd.startTime != startTime || vnd.endTime != endTime) {
+                vnd.startTime = startTime;
+                vnd.endTime = endTime;
+                nodesChanged = true;
             }
-        } catch (e) {
-            Logger.error(`Error getting ${this.config.refreshUrl}`);
-        } finally {
-            release();
         }
-        // Don't need to call with await; it can be done asynchronously...
-        this.dashboardManager.update([...this.validatorNodeData.values()]);
+        // Check if node was removed
+        for (const nodeID of this.validatorNodeData.keys()) {
+            if (!metricsData.has(nodeID)) {
+                this.validatorNodeData.delete(nodeID);
+                Logger.log(`Stopped watching validator ${nodeID}`);
+                nodesChanged = true;
+            }
+        }
+
+        // Update dashboard
+        if (nodesChanged) {
+            this.dashboardManager.update([...this.validatorNodeData.values()]);
+        }
     }
 
     async getMetrics(): Promise<string> {

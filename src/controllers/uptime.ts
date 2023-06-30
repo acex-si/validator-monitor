@@ -1,7 +1,7 @@
 import { ClassSerializerInterceptor, Controller, Get, Logger, Query, UseInterceptors } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AggregationsManager } from '../services/aggregations-manager';
-import { UptimeRequest, UptimeResponse } from '../types/aggregations';
+import { ConnectedRequest, ConnectedResponse, UptimeRequest, UptimeResponse, ValidatorInfoResponse } from '../types/aggregations';
 
 @ApiTags('Aggregations')
 @Controller('aggregations')
@@ -10,11 +10,22 @@ export class AggregationsController {
     constructor(private readonly aggregations: AggregationsManager) {
     }
 
-    @ApiOperation({ summary: 'Get etimated uptime (based on prometheus monitoring) of a specific node for the giver interval' })
+    @ApiOperation({ summary: 'Get estimated uptime (based on prometheus monitoring) of a specific node for the given interval' })
     @Get('uptime')
-    async uptime(@Query() req: UptimeRequest) /*: Promise<UptimeResponse> */ {
-        // Logger.log('Node id ' + req.nodeID + ' ' + req.from);
-        return this.aggregations.runAnalyze(req.nodeID, req.from, req.to);
+    async validatorUptime(@Query() req: UptimeRequest): Promise<UptimeResponse | null> {
+        return this.aggregations.averageValidatorUptime(req.nodeID, req.from, req.to);
+    }
+
+    @ApiOperation({ summary: 'Check if a validator node was connected (based on prometheus monitoring) at specific time'})
+    @Get('connected')
+    async validatorConnected(@Query() req: ConnectedRequest): Promise<ConnectedResponse | null> {
+        return this.aggregations.validatorConnectedAt(req.nodeID, req.at);
+    }
+
+    @ApiOperation({ summary: 'Get node info: start time, end time and uptime in this inteval (based on prometheus monitoring at specific time)'})
+    @Get('info')
+    async validatorInfo(@Query() req: ConnectedRequest): Promise<ValidatorInfoResponse | null> {
+        return this.aggregations.validatorInfoAt(req.nodeID, req.at);
     }
 
 }
