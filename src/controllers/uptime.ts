@@ -22,7 +22,7 @@ export class AggregationsController {
         return this.aggregations.validatorConnectedAt(req.nodeID, req.at);
     }
 
-    @ApiOperation({ summary: 'Get node info: start time, end time and uptime in this inteval (based on prometheus monitoring at specific time)'})
+    @ApiOperation({ summary: 'Get node info: start time, end time and uptime at specific time (based on prometheus monitoring)'})
     @Get('info')
     async validatorInfo(@Query() req: ConnectedRequest): Promise<ValidatorInfoResponse | null> {
         return this.aggregations.validatorInfoAt(req.nodeID, req.at);

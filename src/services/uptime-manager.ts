@@ -7,12 +7,14 @@ import { DashboardManager } from './grafana-tools';
 import { Injectable, Logger } from '@nestjs/common';
 import { Configuration } from './config';
 import PrometheusRegistry from './prometheus';
+import { AverageCollector } from '../tools/utils';
 
 
 interface ValidatorMetricsData {
-    connected: boolean;
+    connected: AverageCollector;
     startTime: number;
     endTime: number;
+    uptime: AverageCollector;
 }
 
 
@@ -79,12 +81,14 @@ export class UptimeManager {
             for (const v of response) {
                 const md = metricsData.get(v.nodeID)
                 if (md) {
-                    md.connected = md.connected || Boolean(v.connected);
+                    md.connected.add(v.connected ? 1 : 0);
+                    md.uptime.add(Number(v.uptime));
                 } else {
                     metricsData.set(v.nodeID, {
-                        connected: Boolean(v.connected),
+                        connected: new AverageCollector().add(v.connected ? 1 : 0),
                         startTime: Number(v.startTime),
-                        endTime: Number(v.endTime)
+                        endTime: Number(v.endTime),
+                        uptime: new AverageCollector().add(Number(v.uptime)),
                     });
                 }
             }
@@ -101,14 +105,16 @@ export class UptimeManager {
         this.registry.connectedCounter.reset();
         this.registry.validatorStartTime.reset();
         this.registry.validatorEndTime.reset();
+        this.registry.validatorUptime.reset();
         for (const [nodeID, md] of metricsData.entries()) {
             const startTime = md.startTime * 1000;
             const endTime = md.endTime * 1000;
 
             // Update metrics
-            this.registry.connectedCounter.set({ 'NodeID': nodeID }, md.connected ? 1 : 0);
+            this.registry.connectedCounter.set({ 'NodeID': nodeID }, md.connected.average() > 0.5 ? 1 : 0);
             this.registry.validatorStartTime.set({ 'NodeID': nodeID }, startTime);
             this.registry.validatorEndTime.set({ 'NodeID': nodeID }, endTime);
+            this.registry.validatorUptime.set({ 'NodeID': nodeID }, md.uptime.average());
 
             // Check if node is new
             const vnd = this.validatorNodeData.get(nodeID);

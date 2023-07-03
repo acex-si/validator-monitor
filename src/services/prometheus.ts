@@ -9,6 +9,7 @@ export default class PrometheusRegistry implements OnModuleInit {
     public readonly connectedCounter: Gauge;
     public readonly validatorStartTime: Gauge;
     public readonly validatorEndTime: Gauge;
+    public readonly validatorUptime: Gauge;
     public readonly nodeAvailable: Gauge;
 
     constructor() {
@@ -36,6 +37,13 @@ export default class PrometheusRegistry implements OnModuleInit {
             labelNames: ['NodeID'],
         });
         this.registry.registerMetric(this.validatorEndTime);
+
+        this.validatorUptime = new Gauge({
+            name: 'validators_uptime',
+            help: 'Validators uptime (as reported by the nodes)',
+            labelNames: ['NodeID'],
+        });
+        this.registry.registerMetric(this.validatorUptime);
 
         this.nodeAvailable = new Gauge({
             name: 'node_available',
