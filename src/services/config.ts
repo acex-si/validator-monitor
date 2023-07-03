@@ -18,9 +18,19 @@ export class Configuration {
     cronString: string;
 
     /**
-     * Grafana dashboard template url
+     * Grafana dashboard template url, not used, in favor of dashboardTemplateFiles
      */
     dashboardTemplateUrl: string;
+
+    /**
+     * Grafana dashboard template file for connected validators (grid)
+     */
+    dashboardConnectedTemplateFile: string;
+
+    /**
+     * Grafana dashboard template files for other metrics (no transformations)
+     */
+    dashboardTemplateFiles: string[] = [];
 
     /**
      * Grafana dashboard destination path
@@ -36,11 +46,25 @@ export class Configuration {
     constructor(private readonly configService: ConfigService) {
         this.initNodeURLs();
         this.initCronString();
+        this.initDashboardTemplates();
         this.dashboardPath = this.configService.get<string>('GRAFANA_DASHBOARD_PATH');
-        this.dashboardTemplateUrl = this.configService.get<string>('GRAFANA_DASHBOARD_TEMPLATE_URL');
         this.prometheusUrl = this.configService.get<string>('PROMETHEUS_URL');
     }
 
+    private initDashboardTemplates() {
+        this.dashboardConnectedTemplateFile = this.configService.get<string>('GRAFANA_DASHBOARD_CONNECTED_TEMPLATE_FILE');
+
+        const envDashboardTemplateFiles = this.configService.get<string>('GRAFANA_DASHBOARD_TEMPLATE_FILES');
+        if (envDashboardTemplateFiles) {
+            this.dashboardTemplateFiles = envDashboardTemplateFiles
+                .split(',')
+                .map(fn => fn.trim())
+                .filter(fn => fn.length > 0);
+        }
+        if (this.dashboardTemplateFiles.length === 0) {
+            Logger.warn('No dashboard template files specified');
+        }
+    }
 
     private initNodeURLs() {
         const envNodeURLs = this.configService.get<string>('AVALANCHE_NODE_URLS');

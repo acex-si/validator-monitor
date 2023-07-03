@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
 import { ValidatorNodeDataItem } from "../types/tools";
@@ -16,7 +17,7 @@ export class DashboardManager implements OnModuleInit {
         Logger.log('Initializing DashboardManager')
     }
 
-    private async readTemplate(): Promise<any> {
+    private async readTemplateFromUrl(): Promise<any> {
         try {
             const response = await axios.get<any>(this.config.dashboardTemplateUrl);
             if (!response.data) {
@@ -29,7 +30,7 @@ export class DashboardManager implements OnModuleInit {
         }
     }
 
-    private dashboardFromTemplate(template: any, nodes: ValidatorNodeDataItem[]): void {
+    private modifyGridDashboardTemplate(template: any, nodes: ValidatorNodeDataItem[]): void {
         const panels = template.panels;
         const panelAll = panels[0];
         const panelNode = panels[1];
@@ -61,20 +62,34 @@ export class DashboardManager implements OnModuleInit {
     }
 
     async update(nodes: ValidatorNodeDataItem[]) {
-        if (!this.config.dashboardTemplateUrl || !this.config.dashboardPath) {
-            return;
-        }
-
-        const template = await this.readTemplate();
-        if (!template) {
+        if ((this.config.dashboardTemplateFiles.length === 0 && !this.config.dashboardConnectedTemplateFile) || !this.config.dashboardPath) {
             return;
         }
 
         try {
-            this.dashboardFromTemplate(template, nodes);
-            fs.writeFileSync(this.config.dashboardPath, JSON.stringify(template), 'utf-8');
+            const template = fs.readFileSync(this.config.dashboardConnectedTemplateFile, 'utf-8');
+            const templateObj = JSON.parse(template);
+            this.modifyGridDashboardTemplate(templateObj, nodes);
+            this.writeDashboardTemplate(this.config.dashboardConnectedTemplateFile, JSON.stringify(templateObj));
         } catch (e) {
-            Logger.error(`Error generating dashboard, ${e}`);
+            Logger.error(`Error generating connected validators dashboard, ${e}`);
+        }
+
+        for (const templateFilename of this.config.dashboardTemplateFiles) {
+            try {
+                const template = fs.readFileSync(templateFilename, 'utf-8');
+                // Potential modification of the template (dashboard) here
+                this.writeDashboardTemplate(templateFilename, template);
+            } catch (e) {
+                Logger.error(`Error generating dashboard, ${e}`);
+            }
         }
     }
+
+    writeDashboardTemplate(pathname: string, template: string) {
+        const filename = path.basename(pathname);
+        const outFile = path.join(this.config.dashboardPath, filename);
+        fs.writeFileSync(outFile, template, 'utf-8');
+    }
+
 }

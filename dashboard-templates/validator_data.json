@@ -1,0 +1,218 @@
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "target": {
+            "limit": 100,
+            "matchAny": false,
+            "tags": [],
+            "type": "dashboard"
+          },
+          "type": "dashboard"
+        }
+      ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 4,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "A6gM6OIVz"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto",
+              "filterable": true,
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "NodeID"
+              },
+              "properties": [
+                {
+                  "id": "custom.width",
+                  "value": 406
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 12,
+          "w": 13,
+          "x": 0,
+          "y": 0
+        },
+        "id": 2,
+        "options": {
+          "footer": {
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "frameIndex": 2,
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": false,
+              "displayName": "NodeID"
+            }
+          ]
+        },
+        "pluginVersion": "9.3.6",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "A6gM6OIVz"
+            },
+            "editorMode": "builder",
+            "exemplar": false,
+            "expr": "validators_start_time",
+            "format": "table",
+            "instant": true,
+            "legendFormat": "__auto",
+            "range": false,
+            "refId": "A"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "A6gM6OIVz"
+            },
+            "editorMode": "builder",
+            "exemplar": false,
+            "expr": "validators_end_time",
+            "format": "table",
+            "hide": false,
+            "instant": true,
+            "legendFormat": "__auto",
+            "range": false,
+            "refId": "B"
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "A6gM6OIVz"
+            },
+            "editorMode": "builder",
+            "exemplar": false,
+            "expr": "validators_uptime",
+            "format": "table",
+            "hide": false,
+            "instant": true,
+            "legendFormat": "__auto",
+            "range": false,
+            "refId": "C"
+          }
+        ],
+        "title": "Current validator data",
+        "transformations": [
+          {
+            "id": "convertFieldType",
+            "options": {
+              "conversions": [
+                {
+                  "destinationType": "time",
+                  "targetField": "Value #B"
+                },
+                {
+                  "destinationType": "time",
+                  "targetField": "Value #A"
+                }
+              ],
+              "fields": {}
+            }
+          },
+          {
+            "id": "concatenate",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "NodeID 2": true,
+                "NodeID 3": true,
+                "Time": true,
+                "__name__ 1": true,
+                "__name__ 2": true,
+                "__name__ 3": true,
+                "instance 1": true,
+                "instance 2": true,
+                "instance 3": true,
+                "job 1": true,
+                "job 2": true,
+                "job 3": true
+              },
+              "indexByName": {},
+              "renameByName": {
+                "NodeID 1": "NodeID",
+                "Value #A": "Start time",
+                "Value #B": "End time",
+                "Value #C": "Uptime",
+                "instance 1": "",
+                "job 3": ""
+              }
+            }
+          }
+        ],
+        "type": "table"
+      }
+    ],
+    "schemaVersion": 37,
+    "style": "dark",
+    "tags": [],
+    "templating": {
+      "list": []
+    },
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Current Validator Data",
+    "uid": "qKR5X094k",
+    "version": 9,
+    "weekStart": ""
+  }
