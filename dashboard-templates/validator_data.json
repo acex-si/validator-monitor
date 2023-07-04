@@ -199,6 +199,7 @@
         "type": "table"
       }
     ],
+    "refresh": "10s",
     "schemaVersion": 37,
     "style": "dark",
     "tags": [],
