@@ -47,7 +47,7 @@ export class Configuration {
         this.initNodeURLs();
         this.initCronString();
         this.initDashboardTemplates();
-        this.dashboardPath = this.configService.get<string>('GRAFANA_DASHBOARD_PATH');
+        this.initDashboardPath();
         this.prometheusUrl = this.configService.get<string>('PROMETHEUS_URL');
     }
 
@@ -63,6 +63,18 @@ export class Configuration {
         }
         if (this.dashboardTemplateFiles.length === 0) {
             Logger.warn('No dashboard template files specified');
+        }
+    }
+
+    private initDashboardPath() {
+        this.dashboardPath = this.configService.get<string>('GRAFANA_DASHBOARD_PATH');
+        if (!this.dashboardPath) {
+            Logger.warn('No dashboard path specified');
+        } else {
+            // Create the folder if it doesn't exist
+            if (!fs.existsSync(this.dashboardPath)) {
+                fs.mkdirSync(this.dashboardPath, { recursive: true });
+            }
         }
     }
 
