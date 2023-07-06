@@ -10,11 +10,17 @@ import PrometheusRegistry from './prometheus';
 import { AverageCollector } from '../tools/utils';
 
 
+interface DelegatorMetricsData {
+    stakeAmount: number; // getValidators returns a string, not a number
+}
+
 interface ValidatorMetricsData {
     connected: AverageCollector;
     startTime: number;
     endTime: number;
     uptime: AverageCollector;
+    stakeAmount: number;
+    delegators: DelegatorMetricsData[];
 }
 
 
@@ -84,11 +90,19 @@ export class UptimeManager {
                     md.connected.add(v.connected ? 1 : 0);
                     md.uptime.add(Number(v.uptime));
                 } else {
+                    let delegators: DelegatorMetricsData[] = [];
+                    if (v.delegators) {
+                        delegators = v.delegators.map(d => ({
+                            stakeAmount: Number(d.stakeAmount) * 1e-9,
+                        }));
+                    }
                     metricsData.set(v.nodeID, {
                         connected: new AverageCollector().add(v.connected ? 1 : 0),
                         startTime: Number(v.startTime),
                         endTime: Number(v.endTime),
                         uptime: new AverageCollector().add(Number(v.uptime)),
+                        stakeAmount: Number(v.stakeAmount) * 1e-9,
+                        delegators: delegators,
                     });
                 }
             }
@@ -106,15 +120,20 @@ export class UptimeManager {
         this.registry.validatorStartTime.reset();
         this.registry.validatorEndTime.reset();
         this.registry.validatorUptime.reset();
+        this.registry.validatorStake.reset();
+        this.registry.validatorDelegationStake.reset();
         for (const [nodeID, md] of metricsData.entries()) {
             const startTime = md.startTime * 1000;
             const endTime = md.endTime * 1000;
+            const delegatorStakeAmount = md.delegators.reduce((a, b) => a + b.stakeAmount, 0);
 
             // Update metrics
             this.registry.connectedCounter.set({ 'NodeID': nodeID }, md.connected.average() > 0.5 ? 1 : 0);
             this.registry.validatorStartTime.set({ 'NodeID': nodeID }, startTime);
             this.registry.validatorEndTime.set({ 'NodeID': nodeID }, endTime);
             this.registry.validatorUptime.set({ 'NodeID': nodeID }, md.uptime.average());
+            this.registry.validatorStake.set({ 'NodeID': nodeID }, md.stakeAmount);
+            this.registry.validatorDelegationStake.set({ 'NodeID': nodeID }, delegatorStakeAmount);
 
             // Check if node is new
             const vnd = this.validatorNodeData.get(nodeID);
@@ -124,12 +143,16 @@ export class UptimeManager {
                     name: '',
                     startTime: startTime,
                     endTime: endTime,
+                    stakeAmount: md.stakeAmount,
+                    delegatorStakeAmount: delegatorStakeAmount,
                 });
                 Logger.log(`Started watching validator ${nodeID}`);
                 nodesChanged = true;
-            } else if (vnd.startTime != startTime || vnd.endTime != endTime) {
+            } else if (vnd.startTime != startTime || vnd.endTime != endTime || vnd.stakeAmount != md.stakeAmount || vnd.delegatorStakeAmount != delegatorStakeAmount) {
                 vnd.startTime = startTime;
                 vnd.endTime = endTime;
+                vnd.stakeAmount = md.stakeAmount;
+                vnd.delegatorStakeAmount = delegatorStakeAmount;
                 nodesChanged = true;
             }
         }

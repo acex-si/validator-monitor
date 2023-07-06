@@ -23,4 +23,14 @@ export interface ValidatorNodeDataItem {
      * Timestamp of the validator end (unix timestamp in seconds)
      */
     endTime: number;
+
+    /**
+     * Stake amount of the validator
+     */
+    stakeAmount: number;
+
+    /**
+     * Delegator stake amount of the validator
+     */
+    delegatorStakeAmount: number;
 }
